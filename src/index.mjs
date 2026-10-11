@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { dataArtifactFiles } from "@red-cup-engineering/eavt-services-section/data-artifact-listing";
-import { EMPTY_WITNESS_ROOT, identifyJsonSemanticContent } from "@red-cup-engineering/semantic-content-identify-service";
+import { EMPTY_WITNESS_ROOT, identifyJsonSemanticContent } from "@red-cup-engineering/computer-content-address-engineering-services-section/semantic-content-identity";
 import { entry, seavt } from "@red-cup-engineering/witness-journal-entry-service";
 import { appendEntries, appendSeavt, readEntriesAtPath, readSeavtAtPath } from "@red-cup-engineering/witness-journal-log-service";
 
