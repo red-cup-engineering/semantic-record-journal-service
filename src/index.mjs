@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
+import { dataArtifactFiles } from "@red-cup-engineering/eavt-services-section/data-artifact-listing";
 import { EMPTY_WITNESS_ROOT, identifyJsonSemanticContent } from "@red-cup-engineering/computer-content-address-engineering-services-section/semantic-content-identity";
 import { entry, seavt } from "@red-cup-engineering/witness-journal-entry-service";
 import { appendEntries, appendSeavt, readEntriesAtPath, readSeavtAtPath } from "@red-cup-engineering/witness-journal-log-service";
@@ -24,16 +24,8 @@ function categoryCoordinate(category) {
 function relationCoordinate(role, value) {
   return `${role}.${createHash("sha256").update(JSON.stringify(value)).digest("hex")}`;
 }
-function filesBelow(directory, suffix) {
-  const found = [];
-  try {
-    for (const item of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, item.name);
-      if (item.isDirectory()) found.push(...filesBelow(path, suffix));
-      else if (item.isFile() && item.name === suffix) found.push(path);
-    }
-  } catch (error) { if (error.code !== "ENOENT") throw error; }
-  return found.sort();
+function feedFiles(root, feed) {
+  return dataArtifactFiles(root, "log", { subject: feed, match: (filename) => filename.endsWith(".jsonl") }).map((file) => file.path);
 }
 function axes(charge) {
   if (!charge || Object.getPrototypeOf(charge) !== Object.prototype || typeof charge.support !== "boolean" || typeof charge.refutation !== "boolean") {
@@ -61,7 +53,7 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
   }
   function query({ objectKind, category }) {
     const kind = requiredText(objectKind ?? defaultObjectKind, "objectKind");
-    const paths = filesBelow(join(custodyRoot, "data", "logs"), `${CONTENT_FEED}.jsonl`);
+    const paths = feedFiles(custodyRoot, CONTENT_FEED);
     const records = [];
     for (const path of paths) for (const row of readEntriesAtPath(path)) {
       if (row.a !== category) continue;
@@ -72,7 +64,7 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
     return Object.freeze(records);
   }
   function claims() {
-    const paths = filesBelow(join(custodyRoot, "data", "logs"), `${CLAIM_FEED}.jsonl`);
+    const paths = feedFiles(custodyRoot, CLAIM_FEED);
     return Object.freeze(paths.flatMap((path) => readSeavtAtPath(path)));
   }
   return Object.freeze({ root: custodyRoot, record, query, claims });
