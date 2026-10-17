@@ -10,10 +10,11 @@
     "./witness-journal-binding": "./src/witness-journal-binding.mjs"
   },
   "files": [
-    "src"
+    "src",
+    "scripts"
   ],
   "scripts": {
-    "check": "node --check src/index.mjs && node --check src/witness-journal-binding.mjs",
+    "check": "node --check src/index.mjs && node --check src/witness-journal-binding.mjs && node --check scripts/admit-witness-journal-files.mjs",
     "verify": "npm run check && npm test",
     "test": "node --test test/*.test.mjs"
   },
@@ -26,5 +27,8 @@
     "@red-cup-engineering/witness-journal-log-service": "workspace:*",
     "@red-cup-engineering/computer-data-engineering-services-section": "workspace:*",
     "@red-cup-engineering/witness-journal-document-service": "workspace:*"
+  },
+  "bin": {
+    "admit-witness-journal-files": "scripts/admit-witness-journal-files.mjs"
   }
 }
