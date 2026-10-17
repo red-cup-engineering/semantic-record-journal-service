@@ -40,7 +40,6 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
     const kind = requiredText(objectKind ?? defaultObjectKind, "objectKind"), observed = axes(charge);
     const identity = identifyJsonSemanticContent({ objectKind: kind, value, witnessRoot: EMPTY_WITNESS_ROOT });
     const hex = tokenHex(identity.id), entity = `record.${hex}`, content = `content.${hex}`, categoryClaim = categoryCoordinate(category);
-    const contentResult = appendEntries(custodyRoot, CONTENT_FEED, [entry(identity.id, category, value, recordedAt)], recordedAt);
     const claims = [seavt(entity, "journal:category", categoryClaim, recordedAt), seavt(entity, "journal:content", content, recordedAt)];
     if (relation !== undefined) {
       if (!relation || Object.getPrototypeOf(relation) !== Object.prototype || !Object.hasOwn(relation, "subject") || !Object.hasOwn(relation, "predicate") || !Object.hasOwn(relation, "object")) throw new TypeError("Semantic record journal relation requires subject, predicate, and object");
@@ -48,6 +47,10 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
     }
     if (observed.support) claims.push(seavt(entity, "charge:support", "evidence.present", recordedAt));
     if (observed.refutation) claims.push(seavt(entity, "charge:refutation", "evidence.present", recordedAt));
+    // Admit every semantic claim and optional relation before writing the content log.
+    // Otherwise an invalid claim leaves an unreceivable content-only witness.
+    const contentRow = entry(identity.id, category, value, recordedAt);
+    const contentResult = appendEntries(custodyRoot, CONTENT_FEED, [contentRow], recordedAt);
     const claimResult = appendSeavt(custodyRoot, CLAIM_FEED, claims, recordedAt);
     return Object.freeze({ id: identity.id, objectKind: kind, contentAppended: contentResult.appended, claimsAppended: claimResult.appended, charge: Object.freeze({ ...observed }) });
   }
