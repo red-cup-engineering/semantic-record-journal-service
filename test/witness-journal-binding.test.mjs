@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -10,8 +10,9 @@ import {
   recordWitnessJournalBatch, relationalWitnessJournalDocument,
   resolveWitnessJournalDocument, queryWitnessJournalDocumentsByCategory,
 } from "@red-cup-engineering/witness-journal-document-service";
+import { createFilesystemWitnessJournalBinding, readFilesystemWitnessJournal } from "@red-cup-engineering/witness-journal-document-service/filesystem-provider";
 import { createSemanticRecordJournal } from "../src/index.mjs";
-import { createJournalWitnessDocumentBinding, startJournalWitnessDocumentProviderProcess } from "../src/witness-journal-binding.mjs";
+import { admitWitnessJournalFiles, createJournalWitnessDocumentBinding, startJournalWitnessDocumentProviderProcess } from "../src/witness-journal-binding.mjs";
 
 const AT = "2026-10-17T17:00:00.000Z";
 const clock = () => new Date(AT);
@@ -117,4 +118,32 @@ test("the original HTTP client reads the same addressed ledger after server rest
     const result = await queryWitnessJournalDocumentsByCategory("paid-work", { agentUrl: second.baseUrl });
     assert.deepEqual(result.map(value => value.id), [accepted.documentNi]);
   } finally { await second.close(); }
+}));
+
+test("offline admission preserves the source filesystem, carries receipts and links, and retires only that legacy root", () => scoped(async root => {
+  const files = mkdtempSync(join(tmpdir(), "legacy-witness-documents-"));
+  try {
+    const previous = await createFilesystemWitnessJournalBinding(files);
+    const old = await recordWitnessJournalBatch({ ...previous, batch: batch({ order: "old" }, "cash") });
+    const inventory = await readFilesystemWitnessJournal(files);
+    assert.equal(inventory.objects.length, 2);
+    assert.equal(inventory.references.length, 1);
+    const originals = inventory.objects.concat(inventory.references).map(value =>
+      [value.path, readFileSync(value.path).toString("base64")]);
+    const hybrid = createJournalWitnessDocumentBinding({ root, legacy: previous, now: clock });
+    assert.deepEqual((await queryWitnessJournalDocumentsByCategory("cash", hybrid)).map(value => value.id), [old.documentNi]);
+    assert.deepEqual(await admitWitnessJournalFiles({ from: files, root }), { done: true, objects: 2, references: 1 });
+    assert.deepEqual(await admitWitnessJournalFiles({ from: files, root }), { done: true, objects: 0, references: 0 });
+    for (const [path, data] of originals) assert.equal(readFileSync(path).toString("base64"), data, "admission never rewrites source");
+    const reopened = createJournalWitnessDocumentBinding({ root, now: clock });
+    assert.deepEqual((await queryWitnessJournalDocumentsByCategory("cash", reopened)).map(value => value.id), [old.documentNi]);
+    assert.ok(await reopened.custody.get(old.digest), "batch receipt was admitted, not only document");
+    await recordWitnessJournalBatch({ ...previous, batch: batch({ order: "newer" }, "cash") });
+    assert.deepEqual((await queryWitnessJournalDocumentsByCategory("cash", hybrid)).map(value => value.id), [old.documentNi],
+      "once admitted the original source no longer leaks into the cut");
+    const different = mkdtempSync(join(tmpdir(), "other-legacy-witness-"));
+    try {
+      await assert.rejects(admitWitnessJournalFiles({ from: different, root }), /another source/);
+    } finally { rmSync(different, { recursive: true, force: true }); }
+  } finally { rmSync(files, { recursive: true, force: true }); }
 }));
