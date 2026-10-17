@@ -11,7 +11,7 @@ import {
   resolveWitnessJournalDocument, queryWitnessJournalDocumentsByCategory,
 } from "@red-cup-engineering/witness-journal-document-service";
 import { createSemanticRecordJournal } from "../src/index.mjs";
-import { createJournalWitnessDocumentBinding } from "../src/witness-journal-binding.mjs";
+import { createJournalWitnessDocumentBinding, startJournalWitnessDocumentProviderProcess } from "../src/witness-journal-binding.mjs";
 
 const AT = "2026-10-17T17:00:00.000Z";
 const clock = () => new Date(AT);
@@ -101,4 +101,20 @@ test("legacy custody is consulted only for missing local objects; neither openin
   assert.equal((await binding.custody.get(ni.token)).ni, ni.token);
   assert.equal(reads, 1, "once local, reads do not access legacy");
   assert.equal(journal(root).query({ category: "custodiedObject" }).length, 1);
+}));
+
+test("the original HTTP client reads the same addressed ledger after server restart", () => scoped(async root => {
+  const first = await startJournalWitnessDocumentProviderProcess({ root, now: clock });
+  assert.equal(new URL(first.baseUrl).hostname, "127.0.0.1", "unpriced provider never directly binds a public interface");
+  let accepted;
+  try {
+    accepted = await recordWitnessJournalBatch({ agentUrl: first.baseUrl, batch: batch({ order: 24 }, "paid-work") });
+  } finally { await first.close(); }
+  const second = await startJournalWitnessDocumentProviderProcess({ root, now: clock });
+  try {
+    const document = await resolveWitnessJournalDocument(accepted.documentNi, { agentUrl: second.baseUrl });
+    assert.deepEqual(document.value, { order: 24 });
+    const result = await queryWitnessJournalDocumentsByCategory("paid-work", { agentUrl: second.baseUrl });
+    assert.deepEqual(result.map(value => value.id), [accepted.documentNi]);
+  } finally { await second.close(); }
 }));
