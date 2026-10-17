@@ -14,7 +14,7 @@
     "scripts"
   ],
   "scripts": {
-    "check": "node --check src/index.mjs && node --check src/witness-journal-binding.mjs && node --check scripts/admit-witness-journal-files.mjs",
+    "check": "node --check src/index.mjs && node --check src/witness-journal-binding.mjs && node --check scripts/admit-witness-journal-files.mjs && node --check scripts/start-journal-witness-provider.mjs",
     "verify": "npm run check && npm test",
     "test": "node --test test/*.test.mjs"
   },
@@ -29,6 +29,7 @@
     "@red-cup-engineering/witness-journal-document-service": "workspace:*"
   },
   "bin": {
-    "admit-witness-journal-files": "scripts/admit-witness-journal-files.mjs"
+    "admit-witness-journal-files": "scripts/admit-witness-journal-files.mjs",
+    "start-journal-witness-provider": "scripts/start-journal-witness-provider.mjs"
   }
 }
