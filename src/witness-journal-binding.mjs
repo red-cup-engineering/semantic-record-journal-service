@@ -65,6 +65,18 @@ export function createJournalWitnessDocumentBinding({ root, legacy, now = () => 
     (typeof legacy?.custody?.get !== "function" || typeof legacy?.categoryIndex?.query !== "function"))
     throw new TypeError("legacy witness journal requires custody.get and categoryIndex.query");
   const journal = createSemanticRecordJournal({ root, objectKind: JOURNAL_KIND });
+  const legacyOpen = () => {
+    if (legacy === undefined) return false;
+    // Without a root the legacy provider cannot be identified, so keep it
+    // readable rather than silently retiring somebody else's custody.
+    if (typeof legacy.root !== "string") return true;
+    const markerPath = join(journal.root, FILES_ADMISSION_MARKER);
+    if (!existsSync(markerPath)) return true;
+    const marker = JSON.parse(readFileSync(markerPath, "utf8"));
+    if (marker.type !== "WitnessJournalFilesAdmission" || marker.version !== 1)
+      throw new TypeError("invalid witness journal admission marker");
+    return marker.from !== resolve(legacy.root);
+  };
   const recordsOf = category => journal.query({ category }).map(row => row.record);
   const existingObject = ni => {
     const matches = recordsOf(OBJECT_CATEGORY).filter(value => value.ni === ni);
@@ -92,7 +104,7 @@ export function createJournalWitnessDocumentBinding({ root, legacy, now = () => 
       const ni = required(typeof reference === "string" ? reference : reference?.ni, "object NI");
       const local = existingObject(ni);
       if (local) return Object.freeze({ ni, bytes: local.bytes, mediaType: local.mediaType });
-      return legacy === undefined ? null : legacy.custody.get(reference);
+      return legacyOpen() ? legacy.custody.get(reference) : null;
     },
   });
   const categoryIndex = Object.freeze({
@@ -111,7 +123,7 @@ export function createJournalWitnessDocumentBinding({ root, legacy, now = () => 
         .filter(value => value.type === "WitnessJournalCategoryReference" && value.version === 1 &&
           value.predicate === predicate && value.category === category)
         .map(value => required(value.ni, "reference NI")));
-      if (legacy !== undefined) {
+      if (legacyOpen()) {
         let token;
         const seen = new Set();
         for (let page = 0; page < 1000; page += 1) {
