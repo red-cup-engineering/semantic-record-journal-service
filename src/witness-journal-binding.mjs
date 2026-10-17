@@ -12,6 +12,7 @@ import {
   EMPTY_WITNESS_ROOT,
   identifyJsonSemanticContent,
 } from "@red-cup-engineering/computer-data-engineering-services-section/semiotic-expression-notation/semantic-content-identity";
+import { startWitnessJournalDocumentHttpProvider } from "@red-cup-engineering/witness-journal-document-service/http-provider";
 import { createSemanticRecordJournal } from "./index.mjs";
 
 const JOURNAL_KIND = "witness-journal";
@@ -127,4 +128,14 @@ export function createJournalWitnessDocumentBinding({ root, legacy, now = () => 
     },
   });
   return Object.freeze({ root: journal.root, custody, categoryIndex });
+}
+
+/**
+ * Serve the ORIGINAL witness-document HTTP interface over durable Systems
+ * custody. Loopback-only: external authentication, federation and x402 price
+ * admission remain the gateway's work, never this unpriced source adapter.
+ */
+export async function startJournalWitnessDocumentProviderProcess({ root, legacy, now, port } = {}) {
+  const binding = createJournalWitnessDocumentBinding({ root, legacy, ...(now === undefined ? {} : { now }) });
+  return startWitnessJournalDocumentHttpProvider(binding, { host: "127.0.0.1", port: port ?? 0 });
 }
