@@ -13,6 +13,9 @@ import {
   identifyJsonSemanticContent,
 } from "@red-cup-engineering/computer-data-engineering-services-section/semiotic-expression-notation/semantic-content-identity";
 import { startWitnessJournalDocumentHttpProvider } from "@red-cup-engineering/witness-journal-document-service/http-provider";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { readFilesystemWitnessJournal } from "@red-cup-engineering/witness-journal-document-service/filesystem-provider";
 import { createSemanticRecordJournal } from "./index.mjs";
 
 const JOURNAL_KIND = "witness-journal";
@@ -22,6 +25,7 @@ const OBJECT_CATEGORY = "custodiedObject";
 const REFERENCE_CATEGORY = "categoryReference";
 const CATEGORY_PREDICATE = "urn:emsenn:witness-journal:category";
 const PROFILE = "org.red-cup-engineering.semantic-record-witness-document.v1";
+const FILES_ADMISSION_MARKER = "witness-journal-files-admission.json";
 const HELD = Object.freeze({ support: true, refutation: false });
 
 function required(value, field) {
@@ -138,4 +142,48 @@ export function createJournalWitnessDocumentBinding({ root, legacy, now = () => 
 export async function startJournalWitnessDocumentProviderProcess({ root, legacy, now, port } = {}) {
   const binding = createJournalWitnessDocumentBinding({ root, legacy, ...(now === undefined ? {} : { now }) });
   return startWitnessJournalDocumentHttpProvider(binding, { host: "127.0.0.1", port: port ?? 0 });
+}
+
+/**
+ * Offline, read-only admission from a filesystem witness-document root into
+ * the existing Systems log. The original root is NEVER written or deleted.
+ * Each source mtime dates its admitted record, while the document/receipt
+ * payload retains the business event's own explicit source time.
+ *
+ * Failed or interrupted runs are retried: idempotent object and reference
+ * writes precede the final marker. The marker is scoped to this exact source
+ * root; it cannot silently claim that a different root was already imported.
+ */
+export async function admitWitnessJournalFiles({ from, root } = {}) {
+  const source = resolve(required(from, "source root"));
+  const target = resolve(required(root, "journal root"));
+  if (source === target) throw new TypeError("witness journal source and target roots must be distinct");
+  const markerPath = join(target, FILES_ADMISSION_MARKER);
+  if (existsSync(markerPath)) {
+    const marker = JSON.parse(readFileSync(markerPath, "utf8"));
+    if (marker.type !== "WitnessJournalFilesAdmission" || marker.version !== 1 || marker.from !== source)
+      throw new TypeError("existing witness journal admission marker belongs to another source");
+    return Object.freeze({ done: true, objects: 0, references: 0 });
+  }
+  const held = await readFilesystemWitnessJournal(source);
+  let objects = 0, references = 0;
+  for (const object of held.objects) {
+    const binding = createJournalWitnessDocumentBinding({ root: target, now: () => statSync(object.path).mtime });
+    if (!(await binding.custody.get(object.ni))) objects += 1;
+    // Also authenticates NI and object kind on an idempotent replay.
+    await binding.custody.put({ ni: object.ni, bytes: object.bytes, mediaType: object.mediaType });
+  }
+  for (const reference of held.references) {
+    const binding = createJournalWitnessDocumentBinding({ root: target, now: () => statSync(reference.path).mtime });
+    const previous = await binding.categoryIndex.query(reference.category, { predicate: reference.predicate });
+    if (!previous.references.some(value => value.ni === reference.ni)) references += 1;
+    await binding.categoryIndex.add(reference);
+  }
+  mkdirSync(target, { recursive: true });
+  writeFileSync(markerPath, JSON.stringify({
+    type: "WitnessJournalFilesAdmission", version: 1, from: source,
+    at: new Date().toISOString(),
+    objects: held.objects.length, references: held.references.length,
+  }) + "\n", { flag: "wx" });
+  return Object.freeze({ done: true, objects, references });
 }
