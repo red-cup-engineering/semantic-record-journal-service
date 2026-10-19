@@ -6,8 +6,7 @@
   "description": "Local addressed semantic records with strict SEAVT claims and independent support/refutation evidence.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/red-cup-engineering/semiotic-computer-system-services-section.git",
-    "directory": "services/witness-journal-services-section/services/semantic-record-journal-service"
+    "url": "git+https://github.com/red-cup-engineering/semantic-record-journal-service.git"
   },
   "license": "Apache-2.0",
   "exports": {
