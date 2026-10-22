@@ -8,7 +8,7 @@
     "type": "git",
     "url": "git+https://github.com/red-cup-engineering/semantic-record-journal-service.git"
   },
-  "license": "Apache-2.0",
+  "license": "MIT",
   "exports": {
     ".": "./src/index.mjs",
     "./witness-journal-binding": "./src/witness-journal-binding.mjs"
@@ -35,5 +35,9 @@
   "bin": {
     "admit-witness-journal-files": "scripts/admit-witness-journal-files.mjs",
     "start-journal-witness-provider": "scripts/start-journal-witness-provider.mjs"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/561-group/.github/blob/main/TIPS.md"
   }
 }
