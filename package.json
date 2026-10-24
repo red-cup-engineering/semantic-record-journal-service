@@ -26,7 +26,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@red-cup-engineering/eavt-engineering-services-section": "workspace:*",
+    "@red-cup-engineering/eavt-services-section": "workspace:*",
     "@red-cup-engineering/witness-journal-entry-service": "workspace:*",
     "@red-cup-engineering/witness-journal-log-service": "workspace:*",
     "@red-cup-engineering/computer-data-engineering-services-section": "workspace:*",
