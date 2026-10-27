@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
 import {
   EMPTY_WITNESS_ROOT, identifyJsonSemanticContent,
@@ -90,24 +90,23 @@ test("refused claim writes do not publish content, and a retry genuinely receive
   const source = journal(root);
   const sample = { category: "proof-test", record: { observation: 47 }, recordedAt: AT,
     charge: { support: true, refutation: false } };
-  // Make the original strict-claim directory a regular file. The genuine
-  // supplier read/append must refuse; a content-first implementation instead
-  // leaks a query-visible, unconfirmed record.
-  const claimFolder = dirname(logPathFor(root, "semantic-record-seavt-claims", AT));
-  mkdirSync(dirname(claimFolder), { recursive: true });
-  writeFileSync(claimFolder, "deny claims", { flag: "wx" });
+  // Obstruct the exact claim FILE, not its parent: some original suppliers
+  // put both feeds in one date directory. The content path must stay writable
+  // so the old content-first implementation actually exposes its false receipt.
+  const claimPath = logPathFor(root, "semantic-record-seavt-claims", AT);
+  const contentPath = logPathFor(root, "semantic-record-content", AT);
+  assert.notEqual(claimPath, contentPath);
+  mkdirSync(claimPath, { recursive: true });
   assert.throws(() => source.record(sample));
-  rmSync(claimFolder);
+  rmSync(claimPath, { recursive: true });
   assert.equal(source.query({ category: sample.category }).length, 0,
     "claim refusal is not silently accepted as a content witness");
 
   // Conversely a failed content append may leave valid orphan claims, but
   // without a content record it cannot be received or counted.
-  const contentFolder = dirname(logPathFor(root, "semantic-record-content", AT));
-  mkdirSync(dirname(contentFolder), { recursive: true });
-  writeFileSync(contentFolder, "deny content", { flag: "wx" });
+  mkdirSync(contentPath, { recursive: true });
   assert.throws(() => source.record(sample));
-  rmSync(contentFolder);
+  rmSync(contentPath, { recursive: true });
   assert.equal(source.query({ category: sample.category }).length, 0);
   assert.ok(source.claims().length >= 2, "the first claims append was durable");
 
