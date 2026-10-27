@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -12,6 +12,8 @@ import {
 } from "@red-cup-engineering/witness-journal-document-service";
 import { createFilesystemWitnessJournalBinding, readFilesystemWitnessJournal } from "@red-cup-engineering/witness-journal-document-service/filesystem-provider";
 import { createSemanticRecordJournal } from "../src/index.mjs";
+import { appendEntries, logPathFor } from "@red-cup-engineering/witness-journal-log-service";
+import { entry } from "@red-cup-engineering/witness-journal-entry-service";
 import { admitWitnessJournalFiles, createJournalWitnessDocumentBinding, startJournalWitnessDocumentProviderProcess } from "../src/witness-journal-binding.mjs";
 
 const AT = "2026-10-17T17:00:00.000Z";
@@ -82,6 +84,56 @@ test("an invalid semantic relation refuses before anything can be appended", () 
   }), /relation requires subject, predicate, and object/);
   assert.equal(source.query({ category: "orders" }).length, 0);
   assert.deepEqual(source.claims(), []);
+}));
+
+test("refused claim writes do not publish content, and a retry genuinely receives both feeds", () => scoped(root => {
+  const source = journal(root);
+  const sample = { category: "proof-test", record: { observation: 47 }, recordedAt: AT,
+    charge: { support: true, refutation: false } };
+  // Obstruct the exact claim FILE, not its parent: some original suppliers
+  // put both feeds in one date directory. The content path must stay writable
+  // so the old content-first implementation actually exposes its false receipt.
+  const claimPath = logPathFor(root, "semantic-record-seavt-claims", AT);
+  const contentPath = logPathFor(root, "semantic-record-content", AT);
+  assert.notEqual(claimPath, contentPath);
+  mkdirSync(claimPath, { recursive: true });
+  assert.throws(() => source.record(sample));
+  rmSync(claimPath, { recursive: true });
+  assert.equal(source.query({ category: sample.category }).length, 0,
+    "claim refusal is not silently accepted as a content witness");
+
+  // Conversely a failed content append may leave valid orphan claims, but
+  // without a content record it cannot be received or counted.
+  mkdirSync(contentPath, { recursive: true });
+  assert.throws(() => source.record(sample));
+  rmSync(contentPath, { recursive: true });
+  assert.equal(source.query({ category: sample.category }).length, 0);
+  assert.ok(source.claims().length >= 2, "the first claims append was durable");
+
+  const accepted = source.record(sample);
+  assert.equal(source.query({ category: sample.category }).length, 1);
+  assert.equal(source.query({ category: sample.category })[0].id, accepted.id);
+  source.record(sample);
+  assert.equal(source.query({ category: sample.category }).length, 1,
+    "idempotent retry cannot count one observation twice");
+}));
+
+test("a pre-existing content-only witness refuses rather than silently becoming accepted evidence", () => scoped(root => {
+  const source = journal(root);
+  const category = "orphan-proof-test", value = { observation: "incomplete" };
+  const identified = identifyJsonSemanticContent({
+    objectKind: "witness-journal", value, witnessRoot: EMPTY_WITNESS_ROOT,
+  });
+  appendEntries(root, "semantic-record-content",
+    [entry(identified.id, category, value, AT)], AT);
+  assert.throws(() => source.query({ category }), /lacks admitted category\/content claims/);
+  // Repair through the original source-owned producer; no alternative log or
+  // fabricated acceptance marker is introduced.
+  const committed = source.record({
+    category, record: value, recordedAt: AT, charge: { support: true, refutation: false },
+  });
+  assert.equal(committed.id, identified.id);
+  assert.equal(source.query({ category }).length, 1);
 }));
 
 test("legacy custody is consulted only for missing local objects; neither opening nor reading migrates it", () => scoped(async root => {
