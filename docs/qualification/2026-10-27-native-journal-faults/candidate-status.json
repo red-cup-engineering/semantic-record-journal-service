@@ -1,0 +1,23 @@
+{
+  "repository": "red-cup-engineering/semantic-record-journal-service",
+  "pullRequest": 1,
+  "baseHead": "7f538d783d145c7e3353afbd0f5dc030df9200f6",
+  "changed": [
+    {
+      "path": "test/witness-journal-binding.test.mjs",
+      "originalGitBlob": "47223dd72afba59327869a7adf67aea8c6c490da",
+      "candidateGitBlob": "0078c7ed92df3fa55208ea0c910fbfe3a8ed3a50",
+      "sha256": "b705c7e9a254de596dbba28495b9c8cb5b4b1323b3ca592902ca459df3072f0e"
+    }
+  ],
+  "issuedProviderCounterexample": {
+    "provider": "@red-cup-engineering/semantic-record-journal-service@0.1.2",
+    "tests": 2,
+    "pass": 0,
+    "fail": 2,
+    "tap": "/workspace/scratch/25841989ba4f/receiving/journal-provider/issued-012-fault-regression.tap"
+  },
+  "candidateQualification": "syntax checked; native candidate suite unqualified due original provider closure gap",
+  "draft": true,
+  "productionReady": false
+}

@@ -47,21 +47,38 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
     }
     if (observed.support) claims.push(seavt(entity, "charge:support", "evidence.present", recordedAt));
     if (observed.refutation) claims.push(seavt(entity, "charge:refutation", "evidence.present", recordedAt));
-    // Admit every semantic claim and optional relation before writing the content log.
+    // Admit strict claims before publishing query-visible content. A refused\n    // claims append must not leave a falsely receivable content-only record.
     // Otherwise an invalid claim leaves an unreceivable content-only witness.
     const contentRow = entry(identity.id, category, value, recordedAt);
-    const contentResult = appendEntries(custodyRoot, CONTENT_FEED, [contentRow], recordedAt);
     const claimResult = appendSeavt(custodyRoot, CLAIM_FEED, claims, recordedAt);
+    const contentResult = appendEntries(custodyRoot, CONTENT_FEED, [contentRow], recordedAt);
     return Object.freeze({ id: identity.id, objectKind: kind, contentAppended: contentResult.appended, claimsAppended: claimResult.appended, charge: Object.freeze({ ...observed }) });
   }
   function query({ objectKind, category }) {
     const kind = requiredText(objectKind ?? defaultObjectKind, "objectKind");
     const paths = feedFiles(custodyRoot, CONTENT_FEED);
+    // A content line is not a committed record unless both independently
+    // written strict claims carry the same content identity, category and time.
+    // Build one index per read, not one full claims scan per content row.
+    const categoryClaim = categoryCoordinate(category);
+    const categories = new Set(), contents = new Set();
+    for (const path of feedFiles(custodyRoot, CLAIM_FEED)) {
+      for (const claim of readSeavtAtPath(path)) {
+        if (claim.a === "journal:category" && claim.v === categoryClaim)
+          categories.add(JSON.stringify([claim.e, claim.t]));
+        if (claim.a === "journal:content")
+          contents.add(JSON.stringify([claim.e, claim.t, claim.v]));
+      }
+    }
     const records = [];
     for (const path of paths) for (const row of readEntriesAtPath(path)) {
       if (row.a !== category) continue;
       const identity = identifyJsonSemanticContent({ objectKind: kind, value: row.v, witnessRoot: EMPTY_WITNESS_ROOT });
       if (identity.id !== row.e) throw new Error(`Semantic record journal content identity drift at ${path}`);
+      const hex = tokenHex(row.e), entity = `record.${hex}`;
+      if (!categories.has(JSON.stringify([entity, row.t])) ||
+          !contents.has(JSON.stringify([entity, row.t, `content.${hex}`])))
+        throw new TypeError("Semantic record journal content lacks admitted category/content claims");
       records.push(Object.freeze({ id: row.e, objectKind: kind, category, recordedAt: row.t, record: row.v }));
     }
     return Object.freeze(records);
