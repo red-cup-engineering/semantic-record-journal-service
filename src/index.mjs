@@ -49,21 +49,21 @@ export function chargeOfTold(told) {
 
 /** Expose independent evidence axes beside the underlying SEAVT records. */
 export function createEvidenceJournal(options) {
-  const journal = createSemanticRecordJournal(options);
+  const log = createSemanticRecordJournal(options);
   return Object.freeze({
-    ...journal,
+    ...log,
     record({ told, charge = evidenceAxes(told), ...input }) {
-      const result = journal.record({ ...input, charge });
+      const result = log.record({ ...input, charge });
       return Object.freeze({ ...result, events: Object.freeze([result.id]) });
     },
     query(input) {
-      return journal.query({ ...input, includeEvidence: true });
+      return log.query({ ...input, includeEvidence: true });
     },
   });
 }
 
 export function createSemanticRecordJournal({ root, objectKind: defaultObjectKind }) {
-  const custodyRoot = resolve(root);
+  const storageRoot = resolve(root);
   function record({ objectKind, category, record: value, recordedAt, charge, relation, origin, causes }) {
     const kind = requiredText(objectKind ?? defaultObjectKind, "objectKind"), observed = axes(charge);
     const identity = identifyJsonSemanticContent({ objectKind: kind, value, witnessRoot: EMPTY_WITNESS_ROOT });
@@ -84,21 +84,21 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
     const attributionRow = Object.keys(attribution).length
       ? entry(identity.id, category, attribution, recordedAt)
       : undefined;
-    const claimResult = appendSeavt(custodyRoot, CLAIM_FEED, claims, recordedAt);
-    if (attributionRow) appendEntries(custodyRoot, ATTRIBUTION_FEED, [attributionRow], recordedAt);
-    const contentResult = appendEntries(custodyRoot, CONTENT_FEED, [contentRow], recordedAt);
+    const claimResult = appendSeavt(storageRoot, CLAIM_FEED, claims, recordedAt);
+    if (attributionRow) appendEntries(storageRoot, ATTRIBUTION_FEED, [attributionRow], recordedAt);
+    const contentResult = appendEntries(storageRoot, CONTENT_FEED, [contentRow], recordedAt);
     return Object.freeze({ id: identity.id, objectKind: kind, contentAppended: contentResult.appended, claimsAppended: claimResult.appended, charge: Object.freeze({ ...observed }) });
   }
   function query({ objectKind, category, includeEvidence = false }) {
     const kind = requiredText(objectKind ?? defaultObjectKind, "objectKind");
-    const paths = feedFiles(custodyRoot, CONTENT_FEED);
+    const paths = feedFiles(storageRoot, CONTENT_FEED);
     // A content line is not a committed record unless both independently
     // written strict claims carry the same content identity, category and time.
     // Build one index per read, not one full claims scan per content row.
     const categoryClaim = categoryCoordinate(category);
     const categories = new Set(), contents = new Set();
     const supportive = new Set(), refuting = new Set(), attribution = new Map();
-    for (const path of feedFiles(custodyRoot, CLAIM_FEED)) {
+    for (const path of feedFiles(storageRoot, CLAIM_FEED)) {
       for (const claim of readSeavtAtPath(path)) {
         if (claim.a === "journal:category" && claim.v === categoryClaim)
           categories.add(observationKey(claim.e, claim.t));
@@ -111,7 +111,7 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
       }
     }
     if (includeEvidence) {
-      for (const path of feedFiles(custodyRoot, ATTRIBUTION_FEED)) for (const row of readEntriesAtPath(path)) {
+      for (const path of feedFiles(storageRoot, ATTRIBUTION_FEED)) for (const row of readEntriesAtPath(path)) {
         if (row.a !== category) continue;
         const key = observationKey(row.e, row.t);
         if (attribution.has(key) && JSON.stringify(attribution.get(key)) !== JSON.stringify(row.v)) {
@@ -139,8 +139,8 @@ export function createSemanticRecordJournal({ root, objectKind: defaultObjectKin
     return Object.freeze(records);
   }
   function claims() {
-    const paths = feedFiles(custodyRoot, CLAIM_FEED);
+    const paths = feedFiles(storageRoot, CLAIM_FEED);
     return Object.freeze(paths.flatMap((path) => readSeavtAtPath(path)));
   }
-  return Object.freeze({ root: custodyRoot, record, query, claims });
+  return Object.freeze({ root: storageRoot, record, query, claims });
 }
