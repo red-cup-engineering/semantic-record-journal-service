@@ -7,8 +7,8 @@ const sourceKinds = new Set(["witness-journal.document", "witness-journal.batch-
 
 /** Read the original semantic-record feeds when a document predates the SEAVT store. */
 function originalDocumentBinding(root) {
-  const log = createSemanticRecordJournal({ root, objectKind: "witness-journal" });
-  const records = category => log.query({ category }).map(row => row.record);
+  const journal = createSemanticRecordJournal({ root, objectKind: "witness-journal" });
+  const records = category => journal.query({ category }).map(row => row.record);
   return {
     custody: {
       async get(reference) {
