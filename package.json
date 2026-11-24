@@ -1,0 +1,55 @@
+{
+  "name": "@red-cup-engineering/semantic-record-journal-service",
+  "version": "0.6.6-dev.0",
+  "private": false,
+  "type": "module",
+  "description": "Local addressed semantic records with strict SEAVT claims and independent support/refutation evidence.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/red-cup-engineering/semantic-record-journal-service.git"
+  },
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./seavt-document-provider": "./src/seavt-document-provider.mjs",
+    "./application": "./src/application.mjs"
+  },
+  "files": [
+    "src",
+    "scripts"
+  ],
+  "scripts": {
+    "check": "node --check src/index.mjs && node --check src/seavt-document-provider.mjs && node --check scripts/start-seavt-document-provider.mjs && node --check src/application.mjs",
+    "verify": "npm run check"
+  },
+  "engines": {
+    "node": ">=24.2.0"
+  },
+  "dependencies": {
+    "@red-cup-engineering/computer-code-engine": "^0.1.9",
+    "@red-cup-engineering/eavt-engineering-services-section": "^0.15.2",
+    "@red-cup-engineering/semiotic-eavt-engineering-services-section": "^0.6.10"
+  },
+  "bin": {
+    "start-seavt-document-provider": "scripts/start-seavt-document-provider.mjs"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/561-group/.github/blob/main/TIPS.md"
+  },
+  "receivingTests": [
+    "test/semantic-evidence.test.mjs",
+    "test/document-application.test.mjs"
+  ],
+  "devDependencies": {
+    "@red-cup-engineering/feltos": "^0.22.11"
+  },
+  "peerDependencies": {
+    "@red-cup-engineering/feltos": "^0.22.11"
+  },
+  "peerDependenciesMeta": {
+    "@red-cup-engineering/feltos": {
+      "optional": true
+    }
+  }
+}
