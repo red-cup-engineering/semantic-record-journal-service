@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "@red-cup-engineering/semiotic-content-address-system";
 import { resolve } from "node:path";
 import { dataArtifactFiles } from "@red-cup-engineering/eavt-engineering-services-section/data-artifact-listing";
 import { EMPTY_WITNESS_ROOT, identifyJsonSemanticContent } from "@red-cup-engineering/computer-code-engine/semiotic-expression-notation/semantic-content-identity";
@@ -21,10 +21,10 @@ function requiredText(value, label) {
   return value;
 }
 function categoryCoordinate(category) {
-  return `category:${createHash("sha256").update(requiredText(category, "category")).digest("hex")}`;
+  return `category:${sha256Hex(requiredText(category, "category"))}`;
 }
 function relationCoordinate(role, value) {
-  return `${role}.${createHash("sha256").update(JSON.stringify(value)).digest("hex")}`;
+  return `${role}.${sha256Hex(JSON.stringify(value))}`;
 }
 function feedFiles(root, feed) {
   return dataArtifactFiles(root, "log", { subject: feed, match: (filename) => filename.endsWith(".jsonl") }).map((file) => file.path);
