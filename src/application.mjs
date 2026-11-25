@@ -1,4 +1,4 @@
-import { sha256Hex } from "@red-cup-engineering/semiotic-content-address-system";
+import { semanticHex } from "@red-cup-engineering/semiotic-content-address-system";
 import { isAbsolute, resolve } from "node:path";
 import { startSemanticRecordDocumentProvider } from "./seavt-document-provider.mjs";
 
@@ -13,7 +13,7 @@ export const semanticRecordDocumentApplication = Object.freeze({
       || !Number.isSafeInteger(configuration.port) || configuration.port < 0 || configuration.port > 65535)
       throw new TypeError("the document application requires its absolute custody root and loopback port");
     const root = resolve(configuration.root), port = configuration.port;
-    const identity = sha256Hex(JSON.stringify([root, port]));
+    const identity = semanticHex([root, port]);
     services.ensure("seavt-documents." + identity, {
       start: () => startSemanticRecordDocumentProvider({ root, port }),
     });

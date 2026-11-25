@@ -1,4 +1,4 @@
-import { sha256Hex } from "@red-cup-engineering/semiotic-content-address-system";
+import { sha256Hex, semanticHex } from "@red-cup-engineering/semiotic-content-address-system";
 import { resolve } from "node:path";
 import { dataArtifactFiles } from "@red-cup-engineering/eavt-engineering-services-section/data-artifact-listing";
 import { EMPTY_WITNESS_ROOT, identifyJsonSemanticContent } from "@red-cup-engineering/computer-code-engine/semiotic-expression-notation/semantic-content-identity";
@@ -24,7 +24,7 @@ function categoryCoordinate(category) {
   return `category:${sha256Hex(requiredText(category, "category"))}`;
 }
 function relationCoordinate(role, value) {
-  return `${role}.${sha256Hex(JSON.stringify(value))}`;
+  return `${role}.${semanticHex(value)}`;
 }
 function feedFiles(root, feed) {
   return dataArtifactFiles(root, "log", { subject: feed, match: (filename) => filename.endsWith(".jsonl") }).map((file) => file.path);
